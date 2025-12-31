@@ -45,8 +45,7 @@ The clock mechanism itself is not modified.
 
 ## Video
 
-https://github.com/user-attachments/assets/ff5681fa-3189-4641-85de-ae808c66d57e
-
-
-
+<p align="center" width="100%">
+<video src="img/timelapse.mp4" width="80%" controls></video>
+</p>
 
