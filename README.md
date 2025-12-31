@@ -43,9 +43,4 @@ The clock mechanism itself is not modified.
 - 3-position switch
 - Miscellaneous hardware (bearings, fasteners, wiring)
 
-## Video
-
-https://github.com/user-attachments/assets/2b348188-c8ff-486e-ba3c-c477febdc23c
-
-
 
