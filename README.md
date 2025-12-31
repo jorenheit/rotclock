@@ -45,7 +45,7 @@ The clock mechanism itself is not modified.
 
 ## Video
 
-<p align="center" width="100%">
-<video src="img/timelapse.mp4" width="80%" controls></video>
-</p>
+[![Watch the video](img/finished.png)](img/timelapse.mp4)
+
+
 
