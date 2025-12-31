@@ -4,7 +4,7 @@ This project rotates an entire analog wall clock so that **one selected hand rem
 
 The clock itself is a standard off-the-shelf wall clock. It is mounted inside a rigid outer ring with gear teeth. By rotating this ring at a carefully controlled speed (using a stepper motor and reduction gearing), the apparent motion of the second, minute, or hour hand can be canceled.
 
-![Finished Clock](img/finished.png)
+<p align="center"><kbd><img src="img/finished.png" width="400"/></kbd></p>
 
 ---
 
