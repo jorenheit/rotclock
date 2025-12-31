@@ -42,3 +42,11 @@ The clock mechanism itself is not modified.
 - Timing belt (matching pulleys)
 - 3-position switch
 - Miscellaneous hardware (bearings, fasteners, wiring)
+
+## Video
+
+https://github.com/user-attachments/assets/ff5681fa-3189-4641-85de-ae808c66d57e
+
+
+
+
