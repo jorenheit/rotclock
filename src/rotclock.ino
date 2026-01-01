@@ -3,31 +3,29 @@
 enum Pins {
   CA1  = 12,
   CA2  = 11,
-  CB1  = 9,
+  CB1  = 9,   // whoops, wired in reverse
   CB2  = 10,
   SW_A = 2,
   SW_B = 3
 };
 
-using Motor = StepperMotor<CA1, CA2, CB1, CB2>;
-using Clock = ClockTurner<Motor>;
-using ModeSwitch = Switch<SW_A, SW_B>;
+enum Params {
+  CLOCK_TEETH = 216,
+  GEAR_TEETH  = 36,
+  MOTOR_STEPS = 96
+};
 
-Clock clock;
-ModeSwitch modeSwitch;
+using Clock = ClockTurner<
+  StepperMotor<CA1, CA2, CB1, CB2, MOTOR_STEPS>,
+  Switch<SW_A, SW_B>,
+  CLOCK_TEETH,
+  GEAR_TEETH
+>;
 
 void setup() {
-  clock.begin();
-  modeSwitch.begin([](ModeSwitch::State state){
-    clock.setStationaryHand(
-      (state == ModeSwitch::Up)     ? Clock::SecondHand :
-      (state == ModeSwitch::Middle) ? Clock::MinuteHand :
-      (state == ModeSwitch::Down)   ? Clock::HourHand : Clock::HourHand
-    );
-  });
+  Clock::begin();
 }
 
 void loop() {
-  modeSwitch.loop();
-  clock.loop();
+  Clock::loop();
 }
