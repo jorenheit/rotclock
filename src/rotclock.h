@@ -31,8 +31,10 @@ private:
   static HandlerType &_handler() { static HandlerType h = nullptr; return h; }
   static State &_state() { static State s = Undefined; return s; }
   
-  static State update() { 
-    return _state() = (digitalRead<SW_B>() << 1) | digitalRead<SW_A>(); 
+  static bool update() { 
+    State oldState = _state();
+    _state() = (digitalRead<SW_B>() << 1) | digitalRead<SW_A>(); 
+    return _state() != oldState;
   }
 
 public:
@@ -48,10 +50,7 @@ public:
     static unsigned long prevTime = millis();
     unsigned long now = millis();
     if (now - prevTime < DEBOUNCE_DELAY) return;
-
-    State oldState = state(); 
-    update();
-    if (state() != oldState) {
+    if (update()) {
       prevTime = now;
       if (_handler() != nullptr) _handler()(state());
     }
