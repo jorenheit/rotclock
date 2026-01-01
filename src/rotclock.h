@@ -1,16 +1,15 @@
 #pragma once
-#include "fastdigitalread.h"
-#include "fastdigitalwrite.h"
-
-enum Hand {
-  SecondHand,
-  MinuteHand,
-  HourHand
-};
+#include "util.h"
 
 enum Direction {
   Clockwise,
   CounterClockwise
+};
+
+enum: uint32_t {
+  MILLIS_PER_MINUTE   = 60UL * 1000UL,
+  MILLIS_PER_HOUR     = 60UL * MILLIS_PER_MINUTE,
+  MILLIS_PER_12_HOURS = 12UL * MILLIS_PER_HOUR
 };
 
 template <uint8_t SW_A, uint8_t SW_B>
@@ -19,22 +18,29 @@ class Switch {
 
 public:
   enum State {
-    Up        = 0b01, 
-    Middle    = 0b11, 
-    Down      = 0b10, 
+    Up        = 0b01,
+    Middle    = 0b11,
+    Down      = 0b10,
     Undefined = 0b00
   };
   using HandlerType = void (*)(State);
 
 private:
   Switch() = delete;
+  
   static HandlerType &_handler() { static HandlerType h = nullptr; return h; }
-  static State &_state()         { static State s = Undefined;     return s; }
+  static State &_state() { static State s = Undefined; return s; }
+  
+  static State update() { 
+    return _state() = (digitalRead<SW_B>() << 1) | digitalRead<SW_A>(); 
+  }
 
 public:
   static void begin(HandlerType handler) {
     pinMode(SW_A, INPUT_PULLUP);
     pinMode(SW_B, INPUT_PULLUP);
+    update();
+    handler(state());
     _handler() = handler;
   }
 
@@ -43,11 +49,11 @@ public:
     unsigned long now = millis();
     if (now - prevTime < DEBOUNCE_DELAY) return;
 
-    State newState = (digitalRead<SW_B>() << 1) | digitalRead<SW_A>();
-    if (newState != _state()) {
-      _state() = newState;
+    State oldState = state(); 
+    update();
+    if (state() != oldState) {
       prevTime = now;
-      if (_handler() != nullptr) _handler()(newState);
+      if (_handler() != nullptr) _handler()(state());
     }
   }
 
@@ -77,7 +83,7 @@ public:
     setCoils(index);
   }
 
-private: 
+private:
   static void setCoils(uint8_t index) {
       // Sequence for half-stepping clockwise
     static constexpr uint8_t const sequence[8][4] = {
@@ -89,7 +95,7 @@ private:
       {0, 1, 0, 1}, // A-  B-
       {0, 0, 0, 1}, // A0  B-
       {1, 0, 0, 1}  // A+  B-
-    }; 
+    };
 
     digitalWrite<CA1>(sequence[index][0]);
     digitalWrite<CA2>(sequence[index][1]);
@@ -102,52 +108,44 @@ template <typename Motor, typename Switch, uint16_t ClockTeeth, uint16_t GearTee
 class ClockTurner {
   static_assert(ClockTeeth % GearTeeth == 0);
   static constexpr uint32_t HALFSTEPS_PER_CLOCK_REVOLUTION = 2 * (ClockTeeth / GearTeeth) * Motor::STEPS_PER_REVOLUTION;
+  using SwitchState = typename Switch::State;
 
   ClockTurner() = delete;
-  static Hand &_hand()        { static Hand h = HourHand; return h; }
-  static bool &_initialized() { static bool i = false;    return i; }
-  
+  static uint32_t &_period()      { static uint32_t p = -1; return p; }
+  static bool     &_initialized() { static bool i = false;  return i; }
+
 public:
   static void begin() {
     Motor::begin();
-    Switch::begin(+[](typename Switch::State state){
-      _hand() = (state == Switch::Up)     ? SecondHand :
-                (state == Switch::Middle) ? MinuteHand :
-                (state == Switch::Down)   ? HourHand : HourHand;
+    Switch::begin(+[](SwitchState state){      
       _initialized() = false;
-    });    
+      _period() = Map<
+        Switch::Up,     MILLIS_PER_MINUTE, 
+        Switch::Middle, MILLIS_PER_HOUR, 
+        Switch::Down,   MILLIS_PER_12_HOURS
+      >::at(state);
+    });
   }
 
   static void loop() {
     static uint32_t accumulator = 0;
     static uint32_t lastTime = 0;
-    static uint32_t period = 0;
 
     Switch::loop();
-
     if (!_initialized()) {
       _initialized() = true;
-      lastTime = millis();
       accumulator = 0;
-      period = []() {
-        switch (_hand()) {
-          case SecondHand: return 60UL * 1000UL;
-          case MinuteHand: return 60UL * 60UL * 1000UL;
-          case HourHand:   
-          default:         return 12UL * 60UL * 60UL * 1000UL;
-        }
-      }();
-      return;
+      lastTime = millis();
     }
 
     uint32_t now = millis();
     uint32_t elapsed = now - lastTime;
+    lastTime = now;
 
     accumulator += elapsed * HALFSTEPS_PER_CLOCK_REVOLUTION;
-    while (accumulator >= period) {
-      accumulator -= period;
+    while (accumulator >= _period()) {
+      accumulator -= _period();
       Motor::halfStep();
     }
-    lastTime = now;
   }
 };
