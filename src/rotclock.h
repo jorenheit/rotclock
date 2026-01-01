@@ -59,6 +59,7 @@ public:
 template <uint8_t CA1, uint8_t CA2, uint8_t CB1, uint8_t CB2, uint16_t Steps>
 class StepperMotor {
   StepperMotor() = delete;
+
 public:
   static constexpr uint16_t STEPS_PER_REVOLUTION = Steps;
 
@@ -70,6 +71,13 @@ public:
     setCoils(0);
   }
 
+  static void halfStep(Direction dir = Clockwise) {
+    static uint8_t index = 0;
+    index = (index + (dir == Clockwise ? 1 : 7)) & 7;
+    setCoils(index);
+  }
+
+private: 
   static void setCoils(uint8_t index) {
       // Sequence for half-stepping clockwise
     static constexpr uint8_t const sequence[8][4] = {
@@ -88,12 +96,6 @@ public:
     digitalWrite<CB1>(sequence[index][2]);
     digitalWrite<CB2>(sequence[index][3]);
   }
-
-  static void halfStep(Direction dir = Clockwise) {
-    static uint8_t index = 0;
-    index = (index + (dir == Clockwise ? 1 : 7)) & 7;
-    setCoils(index);
-  }
 };
 
 template <typename Motor, typename Switch, uint16_t ClockTeeth, uint16_t GearTeeth>
@@ -101,7 +103,6 @@ class ClockTurner {
   static_assert(ClockTeeth % GearTeeth == 0);
   static constexpr uint32_t HALFSTEPS_PER_CLOCK_REVOLUTION = 2 * (ClockTeeth / GearTeeth) * Motor::STEPS_PER_REVOLUTION;
 
-private:
   ClockTurner() = delete;
   static Hand &_hand()        { static Hand h = HourHand; return h; }
   static bool &_initialized() { static bool i = false;    return i; }
