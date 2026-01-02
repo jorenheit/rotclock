@@ -84,22 +84,23 @@ public:
 
 private:
   static void setCoils(uint8_t index) {
-      // Sequence for half-stepping clockwise
-    static constexpr uint8_t const sequence[8][4] = {
-      {1, 0, 0, 0}, // A+  B0
-      {1, 0, 1, 0}, // A+  B+
-      {0, 0, 1, 0}, // A0  B+
-      {0, 1, 1, 0}, // A-  B+
-      {0, 1, 0, 0}, // A-  B0
-      {0, 1, 0, 1}, // A-  B-
-      {0, 0, 0, 1}, // A0  B-
-      {1, 0, 0, 1}  // A+  B-
+    // Sequence for half-stepping clockwise
+    static constexpr uint8_t const sequence[8] = {
+      0b1000, // A+  B0
+      0b1010, // A+  B+
+      0b0010, // A0  B+
+      0b0110, // A-  B+
+      0b0100, // A-  B0
+      0b0101, // A-  B-
+      0b0001, // A0  B-
+      0b1001  // A+  B-
     };
 
-    digitalWrite<CA1>(sequence[index][0]);
-    digitalWrite<CA2>(sequence[index][1]);
-    digitalWrite<CB1>(sequence[index][2]);
-    digitalWrite<CB2>(sequence[index][3]);
+    uint8_t const value = sequence[index & 7];
+    digitalWrite<CA1>(value & 0b1000);
+    digitalWrite<CA2>(value & 0b0100);
+    digitalWrite<CB1>(value & 0b0010);
+    digitalWrite<CB2>(value & 0b0001);
   }
 };
 
