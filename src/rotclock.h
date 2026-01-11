@@ -116,7 +116,7 @@ private:
 };
 
 using Millis = uint32_t();
-template <typename Motor, typename Switch, uint16_t ClockTeeth, uint16_t GearTeeth, Millis millis = ::millis>
+template <typename Motor, typename Switch, uint16_t ClockTeeth, uint16_t GearTeeth, Millis millis>
 class ClockTurner {
   static_assert(ClockTeeth % GearTeeth == 0);
   static constexpr uint64_t HALFSTEPS_PER_CLOCK_REVOLUTION = 2 * (ClockTeeth / GearTeeth) * Motor::STEPS_PER_REVOLUTION;
@@ -136,7 +136,7 @@ public:
         Switch::Middle, MILLIS_PER_HOUR, 
         Switch::Down,   MILLIS_PER_12_HOURS
       >::at(state);
-      if (_period() == -1) panic();
+      if (_period() == -1) panic(InvalidSwitchState);
     });
   }
 
@@ -151,22 +151,11 @@ public:
       lastTime = millis();
     }
 
-    // It is possible that millis() returns a value less than the value stored
-    // in lastTime because of synchronization in between two calls. It is therefore
-    // necessary to first check if this happened by first computing "now - lastTime",
-    // which is of type uint32_t and converting that to a signed int32_t. If this is 
-    // negative, we simply return to stall the motors for a while and let time catch 
-    // up.
     uint32_t now = millis();
     uint32_t dt = now - lastTime;
     lastTime = now;
     if (static_cast<int32_t>(dt) <= 0) return;
 
-    // If the 32-bit integer returned by millis() wraps around due to overflow,
-    // the now-value is also smaller than the lastTime value, but this wouldn't
-    // have resulted in a negative value above (due to the difference being very
-    // small in that case). We can simply use the unsigned version of dt to 
-    // calculate the time-difference when this happens.
     accumulator += dt * HALFSTEPS_PER_CLOCK_REVOLUTION;
     for (uint8_t i = 0; accumulator >= _period() && i < 2; ++i) {
       accumulator -= _period();

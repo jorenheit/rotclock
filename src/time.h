@@ -71,15 +71,15 @@ public:
     // Set register pointer to seconds (0x00)
     Wire.beginTransmission(I2C_ADDR);
     Wire.write((uint8_t)0x00);
-    if (Wire.endTransmission() != 0) panic();
+    if (Wire.endTransmission() != 0) panic(I2CError);
 
     // Read seconds, minutes, hours (3 bytes)
-    if (Wire.requestFrom(I2C_ADDR, (uint8_t)3) != 3) panic();
+    if (Wire.requestFrom(I2C_ADDR, (uint8_t)3) != 3) panic(I2CError);
     uint8_t const s = bcd2dec(Wire.read() & 0x7F);   // mask CH bit
     uint8_t const m = bcd2dec(Wire.read() & 0x7F);
     uint8_t const h = bcd2dec(Wire.read() & 0x3F);  // 24h mode
 
-    if (s >= 60 || m >= 60 || h >= 24) panic();
+    if (s >= 60 || m >= 60 || h >= 24) panic(I2CError);
     return TimeVal{h, m, s};
   }
 
@@ -91,7 +91,7 @@ public:
     Wire.write(dec2bcd(t.s));               // CH = 0
     Wire.write(dec2bcd(t.m));
     Wire.write(dec2bcd(t.h) & (uint8_t)0x3F); // 24h mode
-    if (Wire.endTransmission() != 0) panic();
+    if (Wire.endTransmission() != 0) panic(I2CError);
   }
 
 private:
@@ -142,7 +142,7 @@ public:
     // when the other clock has not yet done so.
     if (dt >  SECONDS_PER_DAY / 2) dt -= SECONDS_PER_DAY;
     if (dt < -SECONDS_PER_DAY / 2) dt += SECONDS_PER_DAY;
-    if (abs(dt) > MaxAllowedDesyncSeconds) panic();
+    if (abs(dt) > MaxAllowedDesyncSeconds) panic(MaxDesyncExceeded);
 
     // Adjust start-millis to compensate for the difference
     int8_t const sgn = (dt > 0) ? 1 : (dt < 0) ? -1 : 0;

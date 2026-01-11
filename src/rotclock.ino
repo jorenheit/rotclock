@@ -53,13 +53,14 @@ void syncITC() {
   }
 }
 
-void panic() {
+void panic(PanicCode code) {
   Serial.begin(9600);
   pinMode(ERR, OUTPUT);
   bool ledState = HIGH; 
   while (true) {
     Clock::wobble(1000);
-    Serial.println("PANIC!");
+    Serial.print("PANIC! "); 
+    Serial.println(panicCodeString(code));
     digitalWrite(ERR, ledState);
     ledState = !ledState;
   }

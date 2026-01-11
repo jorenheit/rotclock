@@ -2,7 +2,22 @@
 #include "fastdigitalread.h"
 #include "fastdigitalwrite.h"
 
-void panic();
+enum PanicCode: uint8_t {
+  I2CError,
+  MaxDesyncExceeded,
+  InvalidSwitchState
+};
+
+void panic(PanicCode code);
+char const *panicCodeString(PanicCode code) {
+  static constexpr char const *str[] = {
+    "I2C Error",
+    "Maximum desynchronization exceeded.",
+    "Invalid switch state."
+  };
+
+  return str[code];
+}
 
 template <uint32_t Key, uint32_t Value, uint32_t ... Rest> 
 struct Map {
@@ -19,19 +34,5 @@ struct Map<Key, Value> {
   }
 };
 
-inline char const *get_input(char *buf, int n) {
-  buf[0] = 0;
-  if (!Serial.available()) return buf;
-
-  size_t len = Serial.readBytesUntil('\n', buf, n - 1);
-  buf[len] = 0;
-  if (len > 0 && buf[len - 1] == '\r') buf[len - 1] = 0;
-  return buf;
-}
-
-template <int BufSize>
-inline char const *get_input(char (&buf)[BufSize]) {
-  return get_input(buf, BufSize);
-}
 
 
