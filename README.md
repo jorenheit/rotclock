@@ -35,7 +35,8 @@ The clock mechanism itself is not modified.
 - Arduino Nano (ATmega328P)
 - Bipolar stepper motor
 - L298-based H-bridge motor driver
-- 3D-printed parts (see `stl/` folder)
+- DS3231 real-time clock module
+- 3D-printed parts (see `3mf` folder)
 - Large ring gear (printed, 216 teeth)
 - Small drive gear (printed, 36 teeth)
 - 16-tooth timing pulleys (motor and driven shaft)
