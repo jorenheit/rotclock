@@ -1,5 +1,6 @@
 #pragma once
 #include "util.h"
+#include "time.h"
 
 enum Direction {
   Clockwise,
@@ -56,15 +57,25 @@ public:
     }
   }
 
-  static State state() {
-    return _state();
-  }
+  static State state() { return _state(); }
 };
+
+namespace StepperMotorHelper_ {
+  enum Coil { A = 0b1100, B = 0b0011 };
+  constexpr uint8_t operator+(Coil C) { return C & 0b1010; }
+  constexpr uint8_t operator-(Coil C) { return C & 0b0101; }
+  constexpr uint8_t operator~(Coil C) { return 0;          }
+
+ union CoilConfig {
+    uint8_t _val;
+    struct { uint8_t A_1: 1; uint8_t A_2: 1; uint8_t B_1: 1; uint8_t B_2: 1; } get;
+  };
+}
 
 template <uint8_t CA1, uint8_t CA2, uint8_t CB1, uint8_t CB2, uint16_t Steps>
 class StepperMotor {
   StepperMotor() = delete;
-
+ 
 public:
   static constexpr uint16_t STEPS_PER_REVOLUTION = Steps;
 
@@ -76,7 +87,7 @@ public:
     setCoils(0);
   }
 
-  static void halfStep(Direction dir = Clockwise) {
+  static void halfStep(Direction dir = CounterClockwise) {
     static uint8_t index = 0;
     index = (index + (dir == Clockwise ? 1 : 7)) & 7;
     setCoils(index);
@@ -84,30 +95,31 @@ public:
 
 private:
   static void setCoils(uint8_t index) {
-    // Sequence for half-stepping clockwise
-    static constexpr uint8_t const sequence[8] = {
-      0b1000, // A+  B0
-      0b1010, // A+  B+
-      0b0010, // A0  B+
-      0b0110, // A-  B+
-      0b0100, // A-  B0
-      0b0101, // A-  B-
-      0b0001, // A0  B-
-      0b1001  // A+  B-
+    using namespace StepperMotorHelper_;
+    static constexpr CoilConfig const sequence[8] = {
+      +A | ~B,
+      +A | +B,
+      ~A | +B,
+      -A | +B,
+      -A | ~B,
+      -A | -B,
+      ~A | -B,
+      +A | -B
     };
 
-    uint8_t const value = sequence[index & 7];
-    digitalWrite<CA1>(value & 0b1000);
-    digitalWrite<CA2>(value & 0b0100);
-    digitalWrite<CB1>(value & 0b0010);
-    digitalWrite<CB2>(value & 0b0001);
+    CoilConfig const &value = sequence[index & 7];
+    digitalWrite<CA1>(value.get.A_1);
+    digitalWrite<CA2>(value.get.A_2);
+    digitalWrite<CB1>(value.get.B_1);
+    digitalWrite<CB2>(value.get.B_2);
   }
 };
 
-template <typename Motor, typename Switch, uint16_t ClockTeeth, uint16_t GearTeeth>
+using Millis = uint32_t();
+template <typename Motor, typename Switch, uint16_t ClockTeeth, uint16_t GearTeeth, Millis millis = ::millis>
 class ClockTurner {
   static_assert(ClockTeeth % GearTeeth == 0);
-  static constexpr uint32_t HALFSTEPS_PER_CLOCK_REVOLUTION = 2 * (ClockTeeth / GearTeeth) * Motor::STEPS_PER_REVOLUTION;
+  static constexpr uint64_t HALFSTEPS_PER_CLOCK_REVOLUTION = 2 * (ClockTeeth / GearTeeth) * Motor::STEPS_PER_REVOLUTION;
   using SwitchState = typename Switch::State;
 
   ClockTurner() = delete;
@@ -124,12 +136,13 @@ public:
         Switch::Middle, MILLIS_PER_HOUR, 
         Switch::Down,   MILLIS_PER_12_HOURS
       >::at(state);
+      if (_period() == -1) panic();
     });
   }
 
   static void loop() {
-    static uint32_t accumulator = 0;
-    static uint32_t lastTime = 0;
+    static uint32_t lastTime = millis();
+    static uint64_t accumulator = 0;
 
     Switch::loop();
     if (!_initialized()) {
@@ -138,14 +151,32 @@ public:
       lastTime = millis();
     }
 
+    // It is possible that millis() returns a value less than the value stored
+    // in lastTime because of synchronization in between two calls. It is therefore
+    // necessary to first check if this happened by first computing "now - lastTime",
+    // which is of type uint32_t and converting that to a signed int32_t. If this is 
+    // negative, we simply return to stall the motors for a while and let time catch 
+    // up.
     uint32_t now = millis();
-    uint32_t elapsed = now - lastTime;
+    uint32_t dt = now - lastTime;
     lastTime = now;
+    if (static_cast<int32_t>(dt) <= 0) return;
 
-    accumulator += elapsed * HALFSTEPS_PER_CLOCK_REVOLUTION;
-    while (accumulator >= _period()) {
+    // If the 32-bit integer returned by millis() wraps around due to overflow,
+    // the now-value is also smaller than the lastTime value, but this wouldn't
+    // have resulted in a negative value above (due to the difference being very
+    // small in that case). We can simply use the unsigned version of dt to 
+    // calculate the time-difference when this happens.
+    accumulator += dt * HALFSTEPS_PER_CLOCK_REVOLUTION;
+    for (uint8_t i = 0; accumulator >= _period() && i < 2; ++i) {
       accumulator -= _period();
       Motor::halfStep();
     }
   }
+
+  static void wobble(uint16_t const delayMillis) {
+    Motor::halfStep(Clockwise);        delay(delayMillis);
+    Motor::halfStep(CounterClockwise); delay(delayMillis);
+  }
 };
+
