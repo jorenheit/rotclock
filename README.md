@@ -2,7 +2,7 @@
 
 This project rotates an entire analog wall clock so that **one selected hand remains stationary with respect to the room**.
 
-The clock itself is a standard off-the-shelf wall clock. It is mounted inside a rigid outer ring with gear teeth. By rotating this ring at a carefully controlled speed (using a stepper motor and reduction gearing), the apparent motion of the second, minute, or hour hand can be canceled.
+The clock itself is a standard off-the-shelf wall clock. It is mounted inside a rigid outer ring with gear teeth. By rotating this ring at a carefully controlled speed (using a stepper motor and reduction gearing), the apparent motion of the second, minute, or hour hand can be canceled. An internal clock, based on the Arduino core function `millis()` is used to determine the frequency of the stepper motors, which is periodically synchronized with a real-time clock (DS3231) to make sure that the system keeps time correctly over longer periods of time, since `millis()` will tend to drift by multiple seconds per day on its own. 
 
 <p align="center"><kbd><img src="img/finished.png" width="400"/></kbd></p>
 
