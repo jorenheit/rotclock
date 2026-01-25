@@ -35,33 +35,28 @@ private:
   static bool update() { 
     State oldState = _state();
     _state() = (digitalRead<SW_B>() << 1) | digitalRead<SW_A>(); 
-    return _state() != oldState;
+    return (_state() != oldState) && (_handler() != nullptr);
   }
+  static void handle() { _handler()(_state()); }
 
 public:
   static void begin(HandlerType handler) {
     pinMode(SW_A, INPUT_PULLUP);
     pinMode(SW_B, INPUT_PULLUP);
-    update();
-    handler(state());
     _handler() = handler;
+    update();
+    handle();
   }
 
   static void loop() {
-    static unsigned long prevTime = millis();
-    unsigned long now = millis();
-    if (now - prevTime < DEBOUNCE_DELAY) return;
-    if (update()) {
-      prevTime = now;
-      if (_handler() != nullptr) _handler()(state());
-    }
+    exec_throttled(DEBOUNCE_DELAY, update, handle);
   }
 
   static State state() { return _state(); }
 };
 
 namespace StepperMotorHelper_ {
-  enum Coil { A = 0b1100, B = 0b0011 };
+  enum Coil: uint8_t { A = 0b1100, B = 0b0011 };
   constexpr uint8_t operator+(Coil C) { return C & 0b1010; }
   constexpr uint8_t operator-(Coil C) { return C & 0b0101; }
   constexpr uint8_t operator~(Coil C) { return 0;          }
@@ -141,31 +136,33 @@ public:
   }
 
   static void loop() {
-    static uint32_t lastTime = millis();
+    static exec::Handle handle = nullptr;
     static uint64_t accumulator = 0;
 
     Switch::loop();
     if (!_initialized()) {
       _initialized() = true;
+      exec::reset(handle);
       accumulator = 0;
-      lastTime = millis();
     }
 
-    uint32_t now = millis();
-    uint32_t dt = now - lastTime;
-    lastTime = now;
-    if (static_cast<int32_t>(dt) <= 0) return;
-
-    accumulator += dt * HALFSTEPS_PER_CLOCK_REVOLUTION;
-    for (uint8_t i = 0; accumulator >= _period() && i < 2; ++i) {
-      accumulator -= _period();
-      Motor::halfStep();
-    }
+    auto result = exec_every_with(millis, 10, [](uint32_t dt){
+        accumulator += dt * HALFSTEPS_PER_CLOCK_REVOLUTION;
+        if (accumulator >= _period()) {
+          accumulator -= _period();
+          Motor::halfStep();
+        }        
+      });
+    if (!handle) handle = exec::getHandle(result);
   }
 
-  static void wobble(uint16_t const delayMillis) {
-    Motor::halfStep(Clockwise);        delay(delayMillis);
-    Motor::halfStep(CounterClockwise); delay(delayMillis);
+  static void wobble(uint8_t const n, uint16_t const delayMillis) {
+    for (uint8_t i = 0; i != n; ++i) {
+      Motor::halfStep(Clockwise);        delay(delayMillis);
+    }
+    for (uint8_t i = 0; i != n; ++i) {
+      Motor::halfStep(CounterClockwise); delay(delayMillis);
+    }
   }
 };
 

@@ -1,3 +1,4 @@
+#include "exec_every.h"
 #include "rotclock.h"
 #include "time.h"
 
@@ -12,9 +13,9 @@ enum Pins {
 };
 
 enum Params {
-  CLOCK_TEETH = 216,
-  GEAR_TEETH  = 36,
-  MOTOR_STEPS = 96
+  CLOCK_TEETH       = 216,
+  GEAR_TEETH        = 36,
+  MOTOR_STEPS       = 96
 };
 
 enum SyncSettings {
@@ -23,7 +24,9 @@ enum SyncSettings {
   MaxAllowedDesyncSeconds = 5
 };
 
-using RTC = RTC_DS3231<0x68>;
+using RTC = time::RTC_DS3231<0x68>;
+using ITC = time::ITC<NudgeOnSyncMillis, MaxAllowedDesyncSeconds>;
+
 using Clock = ClockTurner<
   StepperMotor<CA1, CA2, CB1, CB2, MOTOR_STEPS>,
   Switch<SW_A, SW_B>,
@@ -40,28 +43,10 @@ void setup() {
 }
 
 void loop() {
-  syncITC();
   Clock::loop();
-}
-
-void syncITC() {
-  static uint32_t last = millis();
-  uint32_t const now = millis();
-  if (now - last > SyncIntervalMillis) {
-    ITC::sync<RTC, NudgeOnSyncMillis, MaxAllowedDesyncSeconds>();
-    last = now;
-  }
+  exec_every(SyncIntervalMillis, ITC::sync<RTC>);
 }
 
 void panic(PanicCode code) {
-  Serial.begin(9600);
-  pinMode(ERR, OUTPUT);
-  bool ledState = HIGH; 
-  while (true) {
-    Clock::wobble(1000);
-    Serial.print("PANIC! "); 
-    Serial.println(panicCodeString(code));
-    digitalWrite(ERR, ledState);
-    ledState = !ledState;
-  }
+  while (true) Clock::wobble(code, 1000);
 }

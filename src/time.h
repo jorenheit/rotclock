@@ -1,7 +1,8 @@
 #pragma once
-#include "util.h"
 #include <Wire.h>
+#include "util.h"
 
+namespace time {
 struct TimeVal {
   uint8_t h, m, s;
 
@@ -104,6 +105,7 @@ private:
   }
 };
 
+template <uint32_t NudgeOnSyncMillis, uint8_t MaxAllowedDesyncSeconds>
 class ITC {
   static TimeVal &_startTime()    { static TimeVal startTime = 0;    return startTime;   }
   static uint32_t &_startMillis() { static uint32_t startMillis = 0; return startMillis; }
@@ -119,7 +121,9 @@ public:
   }
   
   static uint32_t millis() {
-    return ::millis() - _startMillis();
+    static uint32_t prevTime = _startMillis();
+    uint32_t currentTime = ::millis() - _startMillis();
+    return (currentTime < prevTime) ? prevTime : (prevTime = currentTime);
   }
 
   static TimeVal time() {
@@ -128,26 +132,28 @@ public:
     return startSeconds + elapsedSeconds;
   }
 
-  template <typename RTC, uint32_t NudgeOnSyncMillis, uint8_t MaxAllowedDesyncSeconds>
+  template <typename RTC>
   static void sync() {
-    constexpr int32_t const SECONDS_PER_DAY = 24 * 3600;
 
-    // Compute time difference
-    auto const itc = static_cast<int32_t>(ITC::time());
-    auto const rtc = static_cast<int32_t>(RTC::time());
-    int32_t dt = itc - rtc;
+    static auto const getClockDifference = [](){
+      constexpr int32_t const SECONDS_PER_DAY = 24 * 3600;
+      auto const itc = static_cast<int32_t>(ITC::time());
+      auto const rtc = static_cast<int32_t>(RTC::time());
+      int32_t dt = itc - rtc;
+      if (dt >  SECONDS_PER_DAY / 2) dt -= SECONDS_PER_DAY;
+      if (dt < -SECONDS_PER_DAY / 2) dt += SECONDS_PER_DAY;
+      return dt;
+    };
 
-    // Map dt into the interval [-SECONDS_PER_DAY/2, SECONDS_PER_DAY/2]
-    // to handle the situation where one clock has moved past midnight
-    // when the other clock has not yet done so.
-    if (dt >  SECONDS_PER_DAY / 2) dt -= SECONDS_PER_DAY;
-    if (dt < -SECONDS_PER_DAY / 2) dt += SECONDS_PER_DAY;
-    if (abs(dt) > MaxAllowedDesyncSeconds) panic(MaxDesyncExceeded);
-
-    // Adjust start-millis to compensate for the difference
-    int8_t const sgn = (dt > 0) ? 1 : (dt < 0) ? -1 : 0;
-    _startMillis() += sgn * NudgeOnSyncMillis;
+    // Compute time difference and adjust the start-value to compensate
+    while (true) {
+      int32_t const dt = getClockDifference();
+      if (dt == 0) break;
+      else if (abs(dt) > MaxAllowedDesyncSeconds) panic(MaxDesyncExceeded);
+      int8_t const sgn = (dt > 0) ? 1 : (dt < 0) ? -1 : 0;
+      _startMillis() += sgn * NudgeOnSyncMillis;
+    }
   }
-
 };
 
+} // namespace time

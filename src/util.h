@@ -3,13 +3,13 @@
 #include "fastdigitalwrite.h"
 
 enum PanicCode: uint8_t {
-  I2CError,
+  I2CError = 1,
   MaxDesyncExceeded,
   InvalidSwitchState
 };
 
 void panic(PanicCode code);
-char const *panicCodeString(PanicCode code) {
+inline char const *panicCodeString(PanicCode code) {
   static constexpr char const *str[] = {
     "I2C Error",
     "Maximum desynchronization exceeded.",
@@ -33,6 +33,4 @@ struct Map<Key, Value> {
     return (Key == key) ? Value : -1;
   }
 };
-
-
 
