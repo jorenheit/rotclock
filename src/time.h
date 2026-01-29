@@ -121,9 +121,9 @@ public:
   }
   
   static uint32_t millis() {
-    static uint32_t prevTime = _startMillis();
+    static uint32_t prevTime = 0;
     uint32_t currentTime = ::millis() - _startMillis();
-    return (currentTime < prevTime) ? prevTime : (prevTime = currentTime);
+    return (currentTime - prevTime < 0x80000000UL) ? (prevTime = currentTime) : prevTime;
   }
 
   static TimeVal time() {

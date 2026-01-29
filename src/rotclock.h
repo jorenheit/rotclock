@@ -157,12 +157,8 @@ public:
   }
 
   static void wobble(uint8_t const n, uint16_t const delayMillis) {
-    for (uint8_t i = 0; i != n; ++i) {
-      Motor::halfStep(Clockwise);        delay(delayMillis);
-    }
-    for (uint8_t i = 0; i != n; ++i) {
-      Motor::halfStep(CounterClockwise); delay(delayMillis);
-    }
+    for (uint8_t i = 0; i != n; ++i) { Motor::halfStep(Clockwise);        delay(delayMillis); }
+    for (uint8_t i = 0; i != n; ++i) { Motor::halfStep(CounterClockwise); delay(delayMillis); }
   }
 };
 

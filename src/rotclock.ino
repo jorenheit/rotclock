@@ -8,8 +8,7 @@ enum Pins {
   CB1  = 9,   // whoops, wired in reverse
   CB2  = 10,
   SW_A = 2,
-  SW_B = 3,
-  ERR  = 13
+  SW_B = 3
 };
 
 enum Params {
